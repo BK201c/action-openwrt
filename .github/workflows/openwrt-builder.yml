@@ -131,12 +131,32 @@ jobs:
           echo "FIRMWARE=$PWD" >> $GITHUB_ENV
           echo "status=success" >> $GITHUB_OUTPUT
 
-      - name: Upload firmware directory
+      - name: Upload firmware (EFI image)
         uses: actions/upload-artifact@v7
         if: steps.organize.outputs.status == 'success' && !cancelled()
         with:
-          name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
-          path: ${{ env.FIRMWARE }}
+          name: OpenWrt_efi${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+          path: ${{ env.FIRMWARE }}/*combined-efi.img.gz
+          if-no-files-found: ignore
+          compression-level: 0
+
+      - name: Upload firmware (legacy BIOS image)
+        uses: actions/upload-artifact@v7
+        if: steps.organize.outputs.status == 'success' && !cancelled()
+        with:
+          name: OpenWrt_bios${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+          path: ${{ env.FIRMWARE }}/*combined.img.gz
+          if-no-files-found: ignore
+          compression-level: 0
+
+      - name: Upload firmware (sha256sums)
+        uses: actions/upload-artifact@v7
+        if: steps.organize.outputs.status == 'success' && !cancelled()
+        with:
+          name: OpenWrt_sha256${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+          path: ${{ env.FIRMWARE }}/*sha256sums*
+          if-no-files-found: ignore
+          compression-level: 0
 
       - name: Generate release tag
         id: tag

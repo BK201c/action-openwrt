@@ -160,10 +160,35 @@ jobs:
           keep_minimum_runs: 2
 
       - name: Remove old Releases
-        uses: dev-drprasad/delete-older-releases@master
         if: env.UPLOAD_RELEASE == 'true' && !cancelled()
-        with:
-          keep_latest: 3
-          delete_tags: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          token = os.environ["GITHUB_TOKEN"]
+          repo = os.environ["GITHUB_REPOSITORY"]
+          keep_latest = 3
+
+          def req(method, url):
+              r = urllib.request.Request(url, method=method)
+              r.add_header("Authorization", f"Bearer {token}")
+              r.add_header("Accept", "application/vnd.github+json")
+              r.add_header("X-GitHub-Api-Version", "2022-11-28")
+              return urllib.request.urlopen(r)
+
+          with req("GET", f"https://api.github.com/repos/{repo}/releases?per_page=100") as resp:
+              releases = json.load(resp)
+
+          old_releases = releases[keep_latest:]
+          for rel in old_releases:
+              rel_id = rel["id"]
+              tag = rel["tag_name"]
+              print(f"Deleting release {rel_id} ({tag})")
+              req("DELETE", f"https://api.github.com/repos/{repo}/releases/{rel_id}").read()
+              req("DELETE", f"https://api.github.com/repos/{repo}/git/refs/tags/{tag}").read()
+          PY

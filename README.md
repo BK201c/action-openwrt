@@ -33,5 +33,3 @@ A template for building OpenWrt with GitHub Actions
 - [peter-evans/repository-dispatch](https://github.com/peter-evans/repository-dispatch)
 
 ## License
-
-[MIT](https://github.com/P3TERX/Actions-OpenWrt/blob/main/LICENSE) ©

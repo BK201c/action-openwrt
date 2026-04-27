@@ -125,15 +125,6 @@ jobs:
           cd openwrt
           rm -rf dl/go-mod-cache tmp/go-build
 
-      - name: Build yq with retry
-        run: |
-          cd openwrt
-          if ! make package/feeds/packages/yq/{clean,compile} V=sc -j1; then
-            echo "yq failed once, cleaning Go caches and retrying"
-            rm -rf dl/go-mod-cache tmp/go-build
-            make package/feeds/packages/yq/{clean,compile} V=sc -j1
-          fi
-
       - name: Load custom configuration
         run: |
           [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
@@ -150,6 +141,17 @@ jobs:
           make defconfig
           make download -j8
           find dl -size -1024c -exec rm -f {} \;
+
+      - name: Build yq with retry
+        env:
+          TERM: xterm
+        run: |
+          cd openwrt
+          if ! make package/feeds/packages/yq/{clean,compile} V=sc -j1; then
+            echo "yq failed once, cleaning Go caches and retrying"
+            rm -rf dl/go-mod-cache tmp/go-build
+            make package/feeds/packages/yq/{clean,compile} V=sc -j1
+          fi
 
       - name: Compile the firmware
         id: compile

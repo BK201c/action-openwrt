@@ -80,7 +80,9 @@ jobs:
       - name: Cache OpenWrt dl
         uses: actions/cache@v5
         with:
-          path: openwrt/dl
+          path: |
+            openwrt/dl
+            !openwrt/dl/go-mod-cache
           key: ${{ runner.os }}-openwrt-dl-${{ env.REPO_BRANCH }}-${{ hashFiles(env.CONFIG_FILE, 'feeds.conf.default', 'diy-part1.sh', 'diy-part2.sh') }}
           restore-keys: |
             ${{ runner.os }}-openwrt-dl-${{ env.REPO_BRANCH }}-
@@ -108,6 +110,29 @@ jobs:
 
       - name: Install feeds
         run: cd openwrt && ./scripts/feeds install -a
+
+      - name: Resolve feed package conflicts
+        run: |
+          cd openwrt
+          rm -rf feeds/luci/applications/luci-app-mosdns
+          rm -rf feeds/packages/net/{alist,adguardhome,mosdns,xray*,v2ray*,sing*,smartdns}
+          rm -rf feeds/packages/utils/v2dat
+          rm -rf feeds/packages/lang/golang
+          git clone https://github.com/kenzok8/golang -b 1.26 feeds/packages/lang/golang
+
+      - name: Pre-clean Go caches
+        run: |
+          cd openwrt
+          rm -rf dl/go-mod-cache tmp/go-build
+
+      - name: Build yq with retry
+        run: |
+          cd openwrt
+          if ! make package/feeds/packages/yq/{clean,compile} V=sc -j1; then
+            echo "yq failed once, cleaning Go caches and retrying"
+            rm -rf dl/go-mod-cache tmp/go-build
+            make package/feeds/packages/yq/{clean,compile} V=sc -j1
+          fi
 
       - name: Load custom configuration
         run: |

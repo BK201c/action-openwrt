@@ -31,6 +31,9 @@ env:
   TARGET: x86
   SUBTARGET: 64
   TZ: Asia/Shanghai
+  HOMEPROXY_REPOS: >-
+    https://op.dllkids.xyz/packages/x86_64/packages.adb
+    https://op.dllkids.xyz/luci/x86_64/packages.adb
   PACKAGES: >-
     luci
     luci-i18n-base-zh-cn
@@ -56,6 +59,8 @@ env:
     kmod-nft-tproxy
     kmod-tun
     kmod-dummy
+    luci-app-homeproxy
+    luci-i18n-homeproxy-zh-cn
 
 jobs:
   imagebuilder:
@@ -111,6 +116,9 @@ jobs:
           if ! ls packages/*.apk >/dev/null 2>&1; then
             sed -i '/file:\/\/\/packages\(\/\|$\)/d' "$REPO_FILE"
           fi
+
+          # Append optional extra repositories (workflow-level convenience).
+          printf '%s\n' "${{ env.HOMEPROXY_REPOS }}" >> "$REPO_FILE"
 
           # Append optional extra repositories (workflow-level convenience).
           if [ -n "${{ inputs.extra_repos }}" ]; then

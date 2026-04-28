@@ -31,6 +31,7 @@ env:
   TARGET: x86
   SUBTARGET: 64
   TZ: Asia/Shanghai
+  KERNEL_PARTSIZE: "128"
   PACKAGES: >-
     luci
     luci-i18n-base-zh-cn
@@ -126,7 +127,7 @@ jobs:
             FILES_ARG="FILES=$GITHUB_WORKSPACE/files"
           fi
 
-          make image PROFILE='${{ inputs.profile }}' PACKAGES='${{ env.PACKAGES }}' ROOTFS_PARTSIZE='${{ inputs.rootfs_partsize }}' $FILES_ARG
+          make image PROFILE='${{ inputs.profile }}' PACKAGES='${{ env.PACKAGES }}' ROOTFS_PARTSIZE='${{ inputs.rootfs_partsize }}' CONFIG_TARGET_KERNEL_PARTSIZE='${{ env.KERNEL_PARTSIZE }}' $FILES_ARG
 
       - name: Organize artifacts
         id: out

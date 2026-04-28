@@ -2,23 +2,19 @@
 
 ## 📋 方案选择
 
-你现在有 **两个构建方案**：
+`main` 分支默认仅保留 **ImageBuilder 快速构建方案**。
 
-### ⚡ 方案 1: 快速构建（推荐）
+### ⚡ 方案: 快速构建（推荐）
 
-**文件**: `.github/workflows/openwrt-fast-builder.yml`
+**文件**: `.github/workflows/openwrt-fast-imagebuilder.yml`
 
 - **构建时间**: 5-10 分钟
-- **成功率**: 99%
+- **成功率**: 高
 - **适用**: 日常使用、快速部署
 
-### 🔧 方案 2: 完整编译（备用）
+### 🔧 源码编译说明
 
-**文件**: `.github/workflows/openwrt-builder.yml`
-
-- **构建时间**: 2-4 小时
-- **成功率**: 70%
-- **适用**: 需要深度自定义
+源码编译工作流和相关文件已迁移到 `source` 分支。
 
 ---
 
@@ -90,16 +86,15 @@ git push
 
 ### 修改包列表
 
-编辑 `.github/workflows/openwrt-fast-builder.yml` 中的 `PACKAGES` 变量：
+编辑仓库根目录的 `imagebuilder-packages.txt`：
 
-```yaml
-PACKAGES: >-
-  luci
-  luci-i18n-base-zh-cn
-  # 添加你需要的包
-  vim
-  htop
-  tmux
+```text
+luci
+luci-i18n-base-zh-cn
+# 添加你需要的包
+vim
+htop
+tmux
 ```
 
 ### 查看可用包
@@ -121,17 +116,7 @@ default: '24.10.0'  # 改为你想要的版本
 
 ### 使用第三方软件源
 
-如果需要使用第三方包（如 kenzok8 的源），需要：
-
-1. 添加 `EXTRA_REPOS` 环境变量
-2. 添加 `PUBLIC_KEY_VERIFY` 用于验证
-
-示例：
-```yaml
-EXTRA_REPOS: >-
-  https://raw.githubusercontent.com/kenzok8/openwrt-packages/refs/heads/main/x86_64/packages/packages.adb
-PUBLIC_KEY_VERIFY: "你的公钥（base64编码）"
-```
+如需第三方仓库，请在 workflow 中修改 ImageBuilder 的仓库配置步骤。
 
 ### 修改根文件系统大小
 
@@ -145,23 +130,20 @@ ROOTFS_SIZE: 4096  # 单位：MB，默认 4GB
 
 ### 构建时间
 
-| 操作 | 源码编译 | ImageBuilder |
-|------|---------|--------------|
-| 初始化环境 | 5-10分钟 | 0分钟 |
-| 下载源码 | 5-10分钟 | 0分钟 |
-| 编译工具链 | 30-60分钟 | 0分钟 |
-| 编译包 | 60-120分钟 | 0分钟 |
-| 生成镜像 | 5-10分钟 | 5-10分钟 |
-| **总计** | **2-4小时** | **5-10分钟** |
+| 操作 | ImageBuilder |
+|------|--------------|
+| 下载构建器 | 1-2分钟 |
+| 解析包与组装镜像 | 4-8分钟 |
+| **总计** | **5-10分钟** |
 
 ### 资源消耗
 
-| 资源 | 源码编译 | ImageBuilder |
-|------|---------|--------------|
-| 磁盘空间 | 30-50GB | <1GB |
-| 内存 | 4-8GB | <1GB |
-| CPU | 高负载 | 低负载 |
-| Actions 配额 | 大量消耗 | 极少消耗 |
+| 资源 | ImageBuilder |
+|------|--------------|
+| 磁盘空间 | <1GB |
+| 内存 | <1GB |
+| CPU | 低负载 |
+| Actions 配额 | 极少消耗 |
 
 ---
 
@@ -169,25 +151,13 @@ ROOTFS_SIZE: 4096  # 单位：MB，默认 4GB
 
 ### Q: ImageBuilder 能修改默认 IP 吗？
 
-A: 不能。ImageBuilder 生成的固件默认 IP 固定为 192.168.1.1。
-
-**解决方案**:
-1. 首次启动后通过 LuCI 修改
-2. 使用 SSH 命令修改：
-   ```bash
-   uci set network.lan.ipaddr='192.168.21.1'
-   uci commit network
-   /etc/init.d/network restart
-   ```
+A: 可以。通过 `files/etc/uci-defaults/` 脚本在首次启动时自动修改。
 
 ### Q: ImageBuilder 能添加自定义包吗？
 
-A: 不能直接添加。需要先用 SDK 编译自定义包，然后添加到仓库。
+A: 可以添加仓库中已存在的包。直接修改 `imagebuilder-packages.txt`。
 
-**解决方案**:
-1. 使用 SDK 编译自定义包
-2. 托管到自己的软件源
-3. 在 ImageBuilder 中添加 `EXTRA_REPOS`
+如果仓库没有该包，先用 SDK/源码编译并放到可访问的软件源。
 
 ### Q: 为什么选择 24.10.0 而不是 25.12？
 
@@ -218,14 +188,13 @@ A: ImageBuilder 失败率极低，如果失败：
 | 快速部署 | ⚡ ImageBuilder |
 | CI/CD 自动构建 | ⚡ ImageBuilder |
 | 需要自定义包 | 🔧 SDK + ImageBuilder |
-| 需要修改内核 | 🔧 源码编译 |
-| 需要修改源码 | 🔧 源码编译 |
+| 需要修改内核/源码 | 🔧 使用 `source` 分支 |
 
 ### 最佳实践
 
 1. **日常使用 ImageBuilder** - 快速、稳定
-2. **保留源码编译方案** - 作为备用
-3. **需要自定义时再用源码编译** - 按需选择
+2. **包管理放到 `imagebuilder-packages.txt`** - 维护简单
+3. **需要源码级修改时切换 `source` 分支**
 
 ---
 

@@ -1,213 +1,151 @@
-#
-# File: .github/workflows/openwrt-bulder.yml
-# Description: Build OpenWrt using GitHub Actions
-#
-# This is free software, licensed under the MIT License.
-# See /LICENSE for more information.
-#
-
-name: OpenWrt Builder
+name: OpenWrt Fast Build (ImageBuilder)
 
 on:
-  repository_dispatch:
   workflow_dispatch:
+    inputs:
+      version:
+        description: OpenWrt version (24.10.0 / 25.12.0-rc2 / snapshots)
+        required: true
+        default: "25.12.2"
+        type: string
+      profile:
+        description: Target profile
+        required: true
+        default: "generic"
+        type: string
+      rootfs_partsize:
+        description: Root filesystem size in MB
+        required: true
+        default: "2048"
+        type: string
+      upload_release:
+        description: Upload to GitHub Release
+        required: true
+        default: true
+        type: boolean
+  repository_dispatch:
 
 permissions:
   contents: write
-  actions: write
 
 env:
-  REPO_URL: https://github.com/openwrt/openwrt
-  REPO_BRANCH: openwrt-25.12
-  FEEDS_CONF: feeds.conf.default
-  CONFIG_FILE: .config
-  DIY_P1_SH: diy-part1.sh
-  DIY_P2_SH: diy-part2.sh
-  UPLOAD_BIN_DIR: false
-  UPLOAD_FIRMWARE: true
-  UPLOAD_RELEASE: true
+  TARGET: x86
+  SUBTARGET: 64
   TZ: Asia/Shanghai
+  KERNEL_PARTSIZE: "128"
+  PACKAGES_FILE: packages.txt
+  VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.event.client_payload.version || '25.12.2' }}
+  PROFILE: ${{ github.event_name == 'workflow_dispatch' && inputs.profile || github.event.client_payload.profile || 'generic' }}
+  ROOTFS_PARTSIZE: ${{ github.event_name == 'workflow_dispatch' && inputs.rootfs_partsize || github.event.client_payload.rootfs_partsize || '2048' }}
+  UPLOAD_RELEASE: ${{ github.event_name == 'workflow_dispatch' && inputs.upload_release || github.event.client_payload.upload_release || 'true' }}
 
 jobs:
-  build:
+  imagebuilder:
     runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Initialization environment
-        env:
-          DEBIAN_FRONTEND: noninteractive
+      - name: Set timezone
+        run: sudo timedatectl set-timezone "$TZ"
+
+      - name: Download ImageBuilder
+        id: ib
         run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-          sudo docker image prune --all --force
-          sudo -E apt-get -qq update
-          sudo -E apt-get -qq install build-essential ccache clang cmake cpio curl device-tree-compiler file flex g++ gawk gcc-multilib g++-multilib gettext git libelf-dev libfuse3-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses-dev libssl-dev ninja-build p7zip-full python3 python3-pip python3-pyelftools python3-setuptools qemu-utils rsync squashfs-tools subversion swig unzip wget xxd zlib1g-dev
-          sudo -E apt-get -qq autoremove --purge
-          sudo -E apt-get -qq clean
-          sudo timedatectl set-timezone "$TZ"
-          sudo mkdir -p /workdir
-          sudo chown $USER:$GROUPS /workdir
+          set -eux
+          VERSION='${{ env.VERSION }}'
+          TARGET='${{ env.TARGET }}'
+          SUBTARGET='${{ env.SUBTARGET }}'
 
-      - name: Clone source code
-        working-directory: /workdir
+          if [ "$VERSION" = "snapshots" ]; then
+            BASE_URL="https://downloads.openwrt.org/snapshots/targets/$TARGET/$SUBTARGET"
+            FILE="openwrt-imagebuilder-$TARGET-$SUBTARGET.Linux-x86_64.tar.zst"
+          else
+            BASE_URL="https://downloads.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
+            FILE="openwrt-imagebuilder-$VERSION-$TARGET-$SUBTARGET.Linux-x86_64.tar.zst"
+          fi
+
+          curl -fL "$BASE_URL/$FILE" -o imagebuilder.tar.zst
+          mkdir -p GH-ACTION-IMAGEBUILDER
+          tar --zstd -xf imagebuilder.tar.zst -C GH-ACTION-IMAGEBUILDER --strip-components=1
+          echo "base_url=$BASE_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Configure repositories
         run: |
-          df -hT $PWD
-          git clone $REPO_URL -b $REPO_BRANCH openwrt
-          ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
+          set -eux
+          cd GH-ACTION-IMAGEBUILDER
 
-      - name: Cache OpenWrt dl
-        uses: actions/cache@v5
-        with:
-          path: openwrt/dl
-          key: ${{ runner.os }}-openwrt-dl-${{ env.REPO_BRANCH }}-${{ hashFiles('.config', 'feeds.conf.default', 'diy-part1.sh', 'diy-part2.sh') }}
-          restore-keys: |
-            ${{ runner.os }}-openwrt-dl-${{ env.REPO_BRANCH }}-
-            ${{ runner.os }}-openwrt-dl-
+          # Detect repository file used by this ImageBuilder.
+          if [ -f repositories ]; then
+            REPO_FILE="repositories"
+          elif [ -f repositories.conf ]; then
+            REPO_FILE="repositories.conf"
+          else
+            echo "No repositories file found"
+            exit 1
+          fi
 
-      - name: Load custom feeds
+          # Always keep local packages dir present.
+          mkdir -p packages
+
+          # If no local package exists, drop local file:// repo to avoid packages.adb warnings.
+          if ! ls packages/*.apk >/dev/null 2>&1; then
+            sed -i '/file:\/\/\/packages\(\/\|$\)/d' "$REPO_FILE"
+          fi
+
+          echo "---- $REPO_FILE ----"
+          cat "$REPO_FILE"
+
+      - name: Build image
         run: |
-          [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf.default
-          chmod +x $DIY_P1_SH
-          cd openwrt
-          $GITHUB_WORKSPACE/$DIY_P1_SH
+          set -eux
+          cd GH-ACTION-IMAGEBUILDER
 
-      - name: Update feeds
-        run: cd openwrt && ./scripts/feeds update -a
+          if [ ! -f "$GITHUB_WORKSPACE/${{ env.PACKAGES_FILE }}" ]; then
+            echo "Package file not found: $GITHUB_WORKSPACE/${{ env.PACKAGES_FILE }}"
+            exit 1
+          fi
 
-      - name: Install feeds
-        run: cd openwrt && ./scripts/feeds install -a
+          PACKAGES="$(sed -e 's/#.*$//' -e '/^[[:space:]]*$/d' "$GITHUB_WORKSPACE/${{ env.PACKAGES_FILE }}" | tr '\n' ' ' | xargs)"
+          if [ -z "$PACKAGES" ]; then
+            echo "Package file is empty: $GITHUB_WORKSPACE/${{ env.PACKAGES_FILE }}"
+            exit 1
+          fi
 
-      - name: Load custom configuration
+          FILES_ARG=""
+          if [ -d "$GITHUB_WORKSPACE/files" ]; then
+            FILES_ARG="FILES=$GITHUB_WORKSPACE/files"
+          fi
+
+          make image PROFILE='${{ env.PROFILE }}' PACKAGES="$PACKAGES" ROOTFS_PARTSIZE='${{ env.ROOTFS_PARTSIZE }}' CONFIG_TARGET_KERNEL_PARTSIZE='${{ env.KERNEL_PARTSIZE }}' $FILES_ARG
+
+      - name: Organize artifacts
+        id: out
         run: |
-          [ -e files ] && mv files openwrt/files
-          [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
-          chmod +x $DIY_P2_SH
-          cd openwrt
-          $GITHUB_WORKSPACE/$DIY_P2_SH
+          set -eux
+          cd GH-ACTION-IMAGEBUILDER/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}
+          echo "firmware_dir=$PWD" >> "$GITHUB_OUTPUT"
+          echo "file_date=$(date +'%Y%m%d%H%M')" >> "$GITHUB_OUTPUT"
 
-      - name: Download package
-        id: package
-        run: |
-          cd openwrt
-          make defconfig
-          make download -j8
-          find dl -size -1024c -exec ls -l {} \;
-          find dl -size -1024c -exec rm -f {} \;
-
-      - name: Compile the firmware
-        id: compile
-        run: |
-          cd openwrt
-          echo -e "$(nproc) thread compile"
-          make -j$(nproc) || make -j1 || make -j1 V=s
-          echo "status=success" >> $GITHUB_OUTPUT
-          grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
-          [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
-          echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
-
-      - name: Check space usage
-        if: (!cancelled())
-        run: df -hT
-
-      - name: Upload bin directory
+      - name: Upload artifacts
         uses: actions/upload-artifact@v7
-        if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
         with:
-          name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
-          path: openwrt/bin
-
-      - name: Organize files
-        id: organize
-        if: steps.compile.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true' && !cancelled()
-        run: |
-          cd openwrt/bin/targets/*/*
-          rm -rf packages
-          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
-          echo "status=success" >> $GITHUB_OUTPUT
-
-      - name: Upload firmware (EFI image)
-        uses: actions/upload-artifact@v7
-        if: steps.organize.outputs.status == 'success' && !cancelled()
-        with:
-          name: OpenWrt_efi${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
-          path: ${{ env.FIRMWARE }}/*combined-efi.img.gz
-          if-no-files-found: ignore
+          name: OpenWrt-${{ env.VERSION }}-${{ env.TARGET }}-${{ env.SUBTARGET }}-${{ steps.out.outputs.file_date }}
+          path: |
+            ${{ steps.out.outputs.firmware_dir }}/*combined*.img.gz
+            ${{ steps.out.outputs.firmware_dir }}/*sha256sums*
+          if-no-files-found: error
           compression-level: 0
 
-      - name: Upload firmware (legacy BIOS image)
-        uses: actions/upload-artifact@v7
-        if: steps.organize.outputs.status == 'success' && !cancelled()
-        with:
-          name: OpenWrt_bios${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
-          path: ${{ env.FIRMWARE }}/*combined.img.gz
-          if-no-files-found: ignore
-          compression-level: 0
-
-      - name: Upload firmware (sha256sums)
-        uses: actions/upload-artifact@v7
-        if: steps.organize.outputs.status == 'success' && !cancelled()
-        with:
-          name: OpenWrt_sha256${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
-          path: ${{ env.FIRMWARE }}/*sha256sums*
-          if-no-files-found: ignore
-          compression-level: 0
-
-      - name: Generate release tag
-        id: tag
-        if: steps.organize.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
-        run: |
-          echo "release_tag=$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_OUTPUT
-          touch release.txt
-          echo "status=success" >> $GITHUB_OUTPUT
-
-      - name: Upload firmware to release
+      - name: Upload release
+        if: env.UPLOAD_RELEASE == 'true'
         uses: softprops/action-gh-release@v3
-        if: steps.tag.outputs.status == 'success' && !cancelled()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ steps.tag.outputs.release_tag }}
-          body_path: release.txt
-          files: ${{ env.FIRMWARE }}/*
-
-      - name: Delete workflow runs
-        uses: Mattraks/delete-workflow-runs@v2.1.0
-        with:
-          retain_days: 0
-          keep_minimum_runs: 2
-
-      - name: Remove old Releases
-        if: env.UPLOAD_RELEASE == 'true' && !cancelled()
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: |
-          python3 - <<'PY'
-          import json
-          import os
-          import urllib.request
-
-          token = os.environ["GITHUB_TOKEN"]
-          repo = os.environ["GITHUB_REPOSITORY"]
-          keep_latest = 3
-
-          def req(method, url):
-              r = urllib.request.Request(url, method=method)
-              r.add_header("Authorization", f"Bearer {token}")
-              r.add_header("Accept", "application/vnd.github+json")
-              r.add_header("X-GitHub-Api-Version", "2022-11-28")
-              return urllib.request.urlopen(r)
-
-          with req("GET", f"https://api.github.com/repos/{repo}/releases?per_page=100") as resp:
-              releases = json.load(resp)
-
-          old_releases = releases[keep_latest:]
-          for rel in old_releases:
-              rel_id = rel["id"]
-              tag = rel["tag_name"]
-              print(f"Deleting release {rel_id} ({tag})")
-              req("DELETE", f"https://api.github.com/repos/{repo}/releases/{rel_id}").read()
-              req("DELETE", f"https://api.github.com/repos/{repo}/git/refs/tags/{tag}").read()
-          PY
+          tag_name: openwrt-${{ env.VERSION }}-${{ steps.out.outputs.file_date }}
+          generate_release_notes: true
+          files: |
+            ${{ steps.out.outputs.firmware_dir }}/*combined*.img.gz
+            ${{ steps.out.outputs.firmware_dir }}/*sha256sums*

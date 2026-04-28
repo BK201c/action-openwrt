@@ -7,21 +7,16 @@ A customized OpenWrt firmware for x86_64 routers, built with GitHub Actions.
 This repository provides a customized OpenWrt firmware build for x86_64 routers with pre-configured packages and drivers.
 
 - Fork this repository.
-- Modify `.config` as needed for your hardware.
-- Push changes to trigger GitHub Actions build.
-- Download the built firmware from the Actions artifacts.
+- Edit `imagebuilder-packages.txt` to manage included packages.
+- Push changes and run the fast workflow from Actions.
+- Download the built firmware from workflow artifacts.
 
 ## Workflows
 
-- `OpenWrt Builder`: full build and release flow.
-- `OpenWrt Fast Builder`: compile-focused flow with `ccache` to speed up repeated builds.
+- `OpenWrt Fast Build (ImageBuilder)`: default and recommended workflow on `main`.
+- `Update Checker`: checks upstream OpenWrt updates and triggers repository_dispatch.
 
-For `OpenWrt Fast Builder`, use `workflow_dispatch` inputs to choose:
-
-- `repo_branch`
-- `config_file`
-- `enable_ccache`
-- `upload_artifacts`
+The source-build workflow and related files have been moved to the `source` branch.
 
 ## Supported Hardware
 

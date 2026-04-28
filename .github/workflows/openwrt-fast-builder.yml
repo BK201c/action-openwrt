@@ -76,17 +76,9 @@ jobs:
             kmod-nft-tproxy
             kmod-tun
             kmod-dummy
-            sing-box
-            luci-app-homeproxy
-            luci-i18n-homeproxy-zh-cn
-            ucode-mod-digest
           ROOTFS_SIZE: 4096
           DISABLED_SERVICES: ""
           FILE_HOST: https://downloads.openwrt.org
-          # Add kenzok8 repository for homeproxy
-          EXTRA_REPOS: >-
-            https://op.dllkids.xyz/packages/x86_64/packages.adb
-            https://op.dllkids.xyz/luci/x86_64/packages.adb
 
       - name: Prepare artifacts
         run: |

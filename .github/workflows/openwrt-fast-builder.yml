@@ -1,0 +1,191 @@
+#
+# File: .github/workflows/openwrt-fast-builder.yml
+# Description: Fast OpenWrt build using ImageBuilder (5-10 minutes)
+#
+
+name: OpenWrt Fast Build (ImageBuilder)
+
+on:
+  repository_dispatch:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'OpenWrt version (e.g., 25.12.2, 25.12.0-rc2, snapshots)'
+        required: true
+        default: '25.12.2'
+        type: string
+
+permissions:
+  contents: write
+  actions: write
+
+env:
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Determine version info
+        id: version
+        run: |
+          VERSION="${{ github.event.inputs.version || '25.12.2' }}"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          
+          # Determine branch for package repos
+          if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+ ]]; then
+            BRANCH=$(echo "$VERSION" | grep -oE '^[0-9]+\.[0-9]+')
+          else
+            BRANCH="snapshots"
+          fi
+          echo "BRANCH=$BRANCH" >> $GITHUB_OUTPUT
+          echo "Building OpenWrt $VERSION (branch: $BRANCH)"
+
+      - name: Build OpenWrt Image
+        uses: fantastic-packages/gh-action-imagebuilder@master
+        env:
+          TARGET: x86/64
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          PROFILE: generic
+          PACKAGES: >-
+            luci
+            luci-i18n-base-zh-cn
+            luci-app-package-manager
+            luci-i18n-package-manager-zh-cn
+            wget-ssl
+            curl
+            block-mount
+            ttyd
+            luci-app-ttyd
+            luci-i18n-ttyd-zh-cn
+            etherwake
+            irqbalance
+            luci-app-upnp
+            luci-i18n-upnp-zh-cn
+            luci-app-wol
+            luci-i18n-wol-zh-cn
+            luci-app-irqbalance
+            luci-i18n-irqbalance-zh-cn
+            kmod-igc
+            kmod-r8169
+            kmod-drm-i915
+            kmod-nft-tproxy
+            kmod-tun
+            kmod-dummy
+            sing-box
+            luci-app-homeproxy
+            luci-i18n-homeproxy-zh-cn
+            ucode-mod-digest
+          ROOTFS_SIZE: 4096
+          DISABLED_SERVICES: ""
+          FILE_HOST: https://downloads.openwrt.org
+
+      - name: Prepare artifacts
+        run: |
+          mkdir -p firmware
+          if [ -d "bin/targets/x86/64" ]; then
+            cp -r bin/targets/x86/64/* firmware/ 2>/dev/null || true
+          fi
+          
+          # List generated files
+          echo "Generated files:"
+          find firmware -type f -name "*.img*" -o -name "*.iso" -o -name "sha256sums" 2>/dev/null | head -20
+
+      - name: Upload firmware artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: OpenWrt-${{ steps.version.outputs.VERSION }}-x86-64
+          path: firmware/
+          retention-days: 90
+
+      - name: Generate release tag
+        id: tag
+        if: success()
+        run: |
+          echo "release_tag=$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_OUTPUT
+          echo "status=success" >> $GITHUB_OUTPUT
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: steps.tag.outputs.status == 'success'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.tag.outputs.release_tag }}
+          name: OpenWrt ${{ steps.version.outputs.VERSION }} - $(date +"%Y-%m-%d")
+          body: |
+            ## OpenWrt ${{ steps.version.outputs.VERSION }} x86-64
+            
+            ### 构建信息
+            - **版本**: ${{ steps.version.outputs.VERSION }}
+            - **目标**: x86/64 (generic)
+            - **构建时间**: ${{ github.event.head_commit.timestamp }}
+            
+            ### 包含软件
+            - LuCI Web 管理界面 (中文)
+            - HomeProxy (基于 sing-box)
+            - TTYD 终端
+            - UPnP
+            - 网络唤醒 (WOL)
+            - IRQ 负载均衡
+            
+            ### 网络驱动
+            - Intel I225/I226 (igc)
+            - Realtek RTL8169
+            - Intel 核显支持
+            
+            ### 默认配置
+            - 默认 IP: 192.168.1.1
+            - 用户名: root
+            - 密码: 无（首次启动需设置）
+            
+            ### 文件说明
+            - `*-combined-efi.img.gz`: EFI 启动镜像（推荐）
+            - `*-combined.img.gz`: Legacy BIOS 启动镜像
+            - `sha256sums`: 校验和文件
+          files: firmware/*
+          draft: false
+          prerelease: false
+
+      - name: Delete old workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          retain_days: 0
+          keep_minimum_runs: 2
+
+      - name: Remove old releases
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request
+          
+          token = os.environ["GITHUB_TOKEN"]
+          repo = os.environ["GITHUB_REPOSITORY"]
+          keep_latest = 3
+          
+          def req(method, url):
+              r = urllib.request.Request(url, method=method)
+              r.add_header("Authorization", f"Bearer {token}")
+              r.add_header("Accept", "application/vnd.github+json")
+              r.add_header("X-GitHub-Api-Version", "2022-11-28")
+              return urllib.request.urlopen(r)
+          
+          try:
+              with req("GET", f"https://api.github.com/repos/{repo}/releases?per_page=100") as resp:
+                  releases = json.load(resp)
+              
+              for rel in releases[keep_latest:]:
+                  rel_id = rel["id"]
+                  tag = rel["tag_name"]
+                  print(f"Deleting release {rel_id} ({tag})")
+                  req("DELETE", f"https://api.github.com/repos/{repo}/releases/{rel_id}").read()
+                  req("DELETE", f"https://api.github.com/repos/{repo}/git/refs/tags/{tag}").read()
+          except Exception as e:
+              print(f"Cleanup error: {e}")
+          PY

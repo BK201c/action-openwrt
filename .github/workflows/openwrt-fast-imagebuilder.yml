@@ -56,8 +56,6 @@ env:
     kmod-nft-tproxy
     kmod-tun
     kmod-dummy
-    luci-app-homeproxy
-    luci-i18n-homeproxy-zh-cn
 
 jobs:
   imagebuilder:

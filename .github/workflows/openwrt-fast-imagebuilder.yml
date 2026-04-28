@@ -31,9 +31,9 @@ env:
   TARGET: x86
   SUBTARGET: 64
   TZ: Asia/Shanghai
-  HOMEPROXY_REPOS: >-
-    https://op.dllkids.xyz/packages/x86_64/packages.adb
-    https://op.dllkids.xyz/luci/x86_64/packages.adb
+  HOMEPROXY_OPKG_REPOS: |
+    src/gz homeproxy_packages https://op.dllkids.xyz/packages/x86_64
+    src/gz homeproxy_luci https://op.dllkids.xyz/luci/x86_64
   PACKAGES: >-
     luci
     luci-i18n-base-zh-cn
@@ -117,8 +117,10 @@ jobs:
             sed -i '/file:\/\/\/packages\(\/\|$\)/d' "$REPO_FILE"
           fi
 
-          # Append optional extra repositories (workflow-level convenience).
-          printf '%s\n' "${{ env.HOMEPROXY_REPOS }}" >> "$REPO_FILE"
+          # Append HomeProxy repository in the correct format for opkg ImageBuilder.
+          if [ "$REPO_FILE" = "repositories.conf" ]; then
+            printf '%s\n' "${{ env.HOMEPROXY_OPKG_REPOS }}" >> "$REPO_FILE"
+          fi
 
           # Append optional extra repositories (workflow-level convenience).
           if [ -n "${{ inputs.extra_repos }}" ]; then

@@ -6,22 +6,22 @@ on:
       version:
         description: OpenWrt version (24.10.0 / 25.12.0-rc2 / snapshots)
         required: true
-        default: "24.10.0"
+        default: "25.12.2"
         type: string
       profile:
         description: Target profile
         required: true
         default: "generic"
         type: string
-      extra_repos:
-        description: Extra repositories to append (workflow helper, one URL per line)
-        required: false
-        default: ""
+      rootfs_partsize:
+        description: Root filesystem size in MB
+        required: true
+        default: "2048"
         type: string
       upload_release:
         description: Upload to GitHub Release
         required: true
-        default: false
+        default: true
         type: boolean
 
 permissions:
@@ -31,9 +31,6 @@ env:
   TARGET: x86
   SUBTARGET: 64
   TZ: Asia/Shanghai
-  HOMEPROXY_OPKG_REPOS: |
-    src/gz homeproxy_packages https://op.dllkids.xyz/packages/x86_64
-    src/gz homeproxy_luci https://op.dllkids.xyz/luci/x86_64
   PACKAGES: >-
     luci
     luci-i18n-base-zh-cn
@@ -117,16 +114,6 @@ jobs:
             sed -i '/file:\/\/\/packages\(\/\|$\)/d' "$REPO_FILE"
           fi
 
-          # Append HomeProxy repository in the correct format for opkg ImageBuilder.
-          if [ "$REPO_FILE" = "repositories.conf" ]; then
-            printf '%s\n' "${{ env.HOMEPROXY_OPKG_REPOS }}" >> "$REPO_FILE"
-          fi
-
-          # Append optional extra repositories (workflow-level convenience).
-          if [ -n "${{ inputs.extra_repos }}" ]; then
-            printf '%s\n' "${{ inputs.extra_repos }}" >> "$REPO_FILE"
-          fi
-
           echo "---- $REPO_FILE ----"
           cat "$REPO_FILE"
 
@@ -140,7 +127,7 @@ jobs:
             FILES_ARG="FILES=$GITHUB_WORKSPACE/files"
           fi
 
-          make image PROFILE='${{ inputs.profile }}' PACKAGES='${{ env.PACKAGES }}' $FILES_ARG
+          make image PROFILE='${{ inputs.profile }}' PACKAGES='${{ env.PACKAGES }}' ROOTFS_PARTSIZE='${{ inputs.rootfs_partsize }}' $FILES_ARG
 
       - name: Organize artifacts
         id: out

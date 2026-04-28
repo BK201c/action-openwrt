@@ -25,5 +25,13 @@ ttyd
 luci-i18n-ttyd-zh-cn
 luci-app-nlbwmon
 luci-i18n-nlbwmon-zh-cn
-collectd-mod-interface
-luci-app-statistics
+luci-app-turboacc
+luci-i18n-turboacc-zh-cn
+luci-app-eqos
+luci-i18n-eqos-zh-cn
+luci-app-minidlna
+luci-i18n-minidlna-zh-cn
+luci-app-netdata
+luci-i18n-netdata-zh-cn
+luci-app-wireguard
+luci-i18n-wireguard-zh-cn

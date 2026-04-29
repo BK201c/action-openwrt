@@ -4,6 +4,7 @@ luci-ssl
 wget-ssl
 ca-bundle
 curl
+unzip
 coreutils
 coreutils-base64
 coreutils-nohup

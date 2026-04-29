@@ -1,6 +1,14 @@
 luci
 wget-ssl
 curl
+coreutils
+coreutils-base64
+coreutils-nohup
+ip-full
+libuci-lua
+lua
+luci-compat
+luci-lib-jsonc
 block-mount
 kmod-igc
 kmod-r8169

@@ -5,6 +5,7 @@ wget-ssl
 ca-bundle
 curl
 unzip
+resolveip
 coreutils
 coreutils-base64
 coreutils-nohup

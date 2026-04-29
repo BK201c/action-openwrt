@@ -9,8 +9,9 @@ resolveip
 coreutils
 coreutils-base64
 coreutils-nohup
-ip-full
+ddns-scripts-cloudflare
 dnsmasq-full
+ip-full
 libuci-lua
 lua
 luci-compat
@@ -41,3 +42,5 @@ luci-app-nlbwmon
 luci-i18n-nlbwmon-zh-cn
 luci-app-filebrowser
 luci-i18n-filebrowser-zh-cn
+luci-app-ddns
+luci-i18n-ddns-zh-cn

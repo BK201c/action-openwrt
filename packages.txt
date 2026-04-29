@@ -1,10 +1,12 @@
 luci
+luci-ssl
 wget-ssl
 curl
 coreutils
 coreutils-base64
 coreutils-nohup
 ip-full
+ca-bundle
 libuci-lua
 lua
 luci-compat
@@ -14,6 +16,11 @@ kmod-igc
 kmod-r8169
 kmod-drm-i915
 kmod-nft-tproxy
+kmod-nft-socket  
+kmod-nf-conntrack  
+kmod-nf-conntrack6  
+kmod-nf-nat  
+kmod-nf-reject
 kmod-tun
 kmod-dummy
 luci-i18n-base-zh-cn

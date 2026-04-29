@@ -37,3 +37,10 @@ luci-app-filebrowser
 luci-i18n-filebrowser-zh-cn
 luci-app-ddns
 luci-i18n-ddns-zh-cn
+v2raya
+v2ray-core
+v2ray-extra
+v2ray-geoip
+v2ray-geosite
+luci-app-v2raya
+luci-i18n-v2raya-zh-cn

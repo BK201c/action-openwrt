@@ -6,6 +6,7 @@ coreutils
 coreutils-base64
 coreutils-nohup
 ip-full
+dnsmasq-full
 ca-bundle
 libuci-lua
 lua

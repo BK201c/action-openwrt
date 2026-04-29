@@ -16,6 +16,9 @@ kmod-drm-i915
 kmod-nft-nat
 kmod-nft-tproxy
 kmod-nft-socket  
+iptables-mod-filter
+kmod-ipt-filter
+kmod-lib-textsearch
 kmod-tun
 kmod-dummy
 luci-i18n-base-zh-cn

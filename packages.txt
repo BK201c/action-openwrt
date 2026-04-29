@@ -9,6 +9,8 @@ resolveip
 ddns-scripts-cloudflare
 dnsmasq-full
 ip-full
+iptables-nft
+ip6tables-nft
 block-mount
 kmod-igc
 kmod-r8169

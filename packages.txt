@@ -1,3 +1,4 @@
+-dnsmasq
 luci
 luci-ssl
 wget-ssl
@@ -14,6 +15,7 @@ kmod-nft-tproxy
 kmod-nft-socket
 kmod-tun
 kmod-dummy
+dnsmasq-full
 luci-i18n-base-zh-cn
 luci-i18n-firewall-zh-cn
 luci-app-package-manager
@@ -46,3 +48,5 @@ v2ray-geoip
 v2ray-geosite
 luci-app-v2raya
 luci-i18n-v2raya-zh-cn
+luci-app-adblock-fast
+luci-i18n-adblock-fast-zh-cn

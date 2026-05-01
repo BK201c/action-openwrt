@@ -5,6 +5,15 @@ wget-ssl
 curl
 unzip
 resolveip
+ipset
+libnettle8
+libnetfilter-conntrack3
+ip6tables-mod-nat
+kmod-ipt-nat6
+gawk
+grep
+sed
+coreutils-sort
 ddns-scripts-cloudflare
 block-mount
 kmod-igc

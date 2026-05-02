@@ -44,10 +44,15 @@ luci-app-filebrowser
 luci-i18n-filebrowser-zh-cn
 luci-app-ddns
 luci-i18n-ddns-zh-cn
-v2raya
 ca-bundle
 ip-full
 xray-core
+sing-box
+chinadns-ng
+geoview
+hysteria
+tuic-client
+tcping
 iptables-nft
 ip6tables-nft
 iptables-mod-filter
@@ -55,7 +60,7 @@ kmod-ipt-filter
 kmod-lib-textsearch
 v2ray-geoip
 v2ray-geosite
-luci-app-v2raya
-luci-i18n-v2raya-zh-cn
+luci-app-passwall2
+luci-i18n-passwall2-zh-cn
 luci-app-adblock-fast
 luci-i18n-adblock-fast-zh-cn

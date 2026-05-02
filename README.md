@@ -26,15 +26,15 @@ This firmware includes drivers for the following network interfaces:
 - **Realtek RTL8169**: 1G Ethernet controllers (e.g., RTL8111H)
 - **Realtek RTL8188EE**: Wireless 802.11b/g/n adapters
 
-## Third-party Package Feeds
+## Third-party Packages
 
-PassWall2 is installed from the signed APK repository at
-`https://rage-ac.github.io/Passwall2/packages`. The workflow adds the build-time
-repository key, and the generated firmware also keeps the repository key and
-repository entry for later upgrades from LuCI or `apk`.
+PassWall2 is installed from the official GitHub release APK assets. During the
+build, the workflow downloads the latest x86_64 dependency bundle plus the LuCI
+application and Chinese language APKs, then exposes them to ImageBuilder as
+local packages.
 
-This feed is for apk-based OpenWrt builds. Use the default OpenWrt 25.12.x
-workflow version unless you provide a separate opkg/ipk feed.
+These APK assets are for apk-based OpenWrt builds. Use the default OpenWrt
+25.12.x workflow version unless you provide matching opkg/ipk packages.
 
 ## Credits
 

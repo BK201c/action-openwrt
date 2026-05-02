@@ -113,16 +113,16 @@ default: '25.12.2'  # 改为你想要的版本
 
 ## 🔧 高级配置
 
-### 使用第三方软件源
+### 使用第三方包
 
-当前默认已启用 PassWall2 的 APK 软件源：
+当前默认会从 PassWall2 官方 GitHub Release 下载 x86_64 APK 包：
 
-```text
-https://rage-ac.github.io/Passwall2/packages
-```
+- `passwall_packages_apk_x86_64.zip`
+- `luci-app-passwall2-*.apk`
+- `luci-i18n-passwall2-zh-cn-*.apk`
 
-该软件源仅适合 OpenWrt 25.12.x / snapshots 这类 apk 包管理系统。如果要构建
-24.10/opkg 固件，需要换成可用的 ipk feed。
+这些包仅适合 OpenWrt 25.12.x / snapshots 这类 apk 包管理系统。如果要构建
+24.10/opkg 固件，需要换成可用的 ipk 包。
 
 ### 修改根文件系统大小
 
@@ -167,12 +167,12 @@ A: 可以添加仓库中已存在的包。直接修改 `packages.txt`。
 
 ### Q: 为什么默认选择 25.12.2？
 
-A: 这个固件默认使用 PassWall2 APK 软件源，适合 apk 包管理的 OpenWrt 25.12.x。
+A: 这个固件默认使用 PassWall2 APK release 包，适合 apk 包管理的 OpenWrt 25.12.x。
 
 **建议**:
 - 日常使用: 使用默认的 25.12.2
 - 开发测试: 可以尝试 snapshots
-- 24.10/opkg: 需要另外准备 ipk feed，不能直接使用当前 PassWall2 APK 源
+- 24.10/opkg: 需要另外准备 ipk 包，不能直接使用当前 PassWall2 APK 包
 
 ### Q: 构建失败怎么办？
 

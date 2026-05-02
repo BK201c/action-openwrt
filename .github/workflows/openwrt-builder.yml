@@ -34,8 +34,8 @@ env:
   TZ: Asia/Shanghai
   KERNEL_PARTSIZE: "128"
   PACKAGES_FILE: packages.txt
-  PASSWALL2_REPO: https://rage-ac.github.io/Passwall2/packages
-  PASSWALL2_KEY_URL: https://rage-ac.github.io/Passwall2/keys/passwall2-repo.rsa.pub
+  PASSWALL2_ARCH: x86_64
+  PASSWALL2_RELEASE_API: https://api.github.com/repos/Openwrt-Passwall/openwrt-passwall2/releases/latest
   VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.event.client_payload.version || '25.12.2' }}
   PROFILE: ${{ github.event_name == 'workflow_dispatch' && inputs.profile || github.event.client_payload.profile || 'generic' }}
   ROOTFS_PARTSIZE: ${{ github.event_name == 'workflow_dispatch' && inputs.rootfs_partsize || github.event.client_payload.rootfs_partsize || '2048' }}
@@ -92,17 +92,51 @@ jobs:
           mkdir -p packages
 
           if grep -q 'luci-app-passwall2' "$GITHUB_WORKSPACE/${{ env.PACKAGES_FILE }}"; then
-            # PassWall2 is pulled from an APK repository. This firmware profile is
-            # intended for OpenWrt 25.12+ / apk-based ImageBuilder images.
+            # PassWall2 is pulled from upstream APK release assets. This firmware
+            # profile is intended for OpenWrt 25.12+ / apk-based ImageBuilder images.
             if ! grep -Eq '^https?://' "$REPO_FILE"; then
-              echo "PassWall2 repository is APK-only, but this ImageBuilder appears to use opkg repositories."
-              echo "Build OpenWrt 25.12.x or snapshots, or provide an opkg/ipk PassWall2 feed."
+              echo "PassWall2 release assets are APK-only, but this ImageBuilder appears to use opkg repositories."
+              echo "Build OpenWrt 25.12.x or snapshots, or provide matching ipk PassWall2 packages."
               exit 1
             fi
 
-            mkdir -p keys
-            curl -fL "${{ env.PASSWALL2_KEY_URL }}" -o keys/passwall2-repo.rsa.pub
-            grep -q 'rage-ac.github.io/Passwall2' "$REPO_FILE" || echo "${{ env.PASSWALL2_REPO }}" >> "$REPO_FILE"
+            python3 <<'PY' > /tmp/passwall2-assets.env
+import json
+import os
+import re
+import shlex
+import urllib.request
+
+api = os.environ["PASSWALL2_RELEASE_API"]
+arch = os.environ["PASSWALL2_ARCH"]
+
+with urllib.request.urlopen(api) as response:
+    release = json.load(response)
+
+patterns = {
+    "PASSWALL2_PACKAGES_URL": rf"^passwall_packages_apk_{re.escape(arch)}\.zip$",
+    "PASSWALL2_LUCI_URL": r"^luci-app-passwall2-[0-9].*\.apk$",
+    "PASSWALL2_I18N_ZH_CN_URL": r"^luci-i18n-passwall2-zh-cn-[0-9].*\.apk$",
+}
+
+assets = release.get("assets", [])
+for key, pattern in patterns.items():
+    matches = [
+        asset["browser_download_url"]
+        for asset in assets
+        if re.match(pattern, asset.get("name", ""))
+    ]
+    if not matches:
+        raise SystemExit(f"Missing PassWall2 asset matching {pattern}")
+    print(f"{key}={shlex.quote(matches[0])}")
+PY
+
+            . /tmp/passwall2-assets.env
+            curl -fL "$PASSWALL2_PACKAGES_URL" -o /tmp/passwall2-packages.zip
+            unzip -o /tmp/passwall2-packages.zip -d packages
+            curl -fL "$PASSWALL2_LUCI_URL" -o "packages/${PASSWALL2_LUCI_URL##*/}"
+            curl -fL "$PASSWALL2_I18N_ZH_CN_URL" -o "packages/${PASSWALL2_I18N_ZH_CN_URL##*/}"
+            ls -lh packages/*.apk
           fi
 
           # If no local package exists, drop local file:// repo to avoid packages.adb warnings.

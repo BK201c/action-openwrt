@@ -1,9 +1,0 @@
-#!/bin/sh
-
-repo='https://rage-ac.github.io/Passwall2/packages'
-
-if [ -f /etc/apk/repositories ] && ! grep -q 'rage-ac.github.io/Passwall2' /etc/apk/repositories; then
-	echo "$repo" >> /etc/apk/repositories
-fi
-
-exit 0

@@ -48,10 +48,6 @@ ca-bundle
 ip-full
 xray-core
 sing-box
-chinadns-ng
-geoview
-hysteria
-tuic-client
 tcping
 iptables-nft
 ip6tables-nft

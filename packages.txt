@@ -60,7 +60,5 @@ kmod-ipt-filter
 kmod-lib-textsearch
 v2ray-geoip
 v2ray-geosite
-luci-app-passwall2
-luci-i18n-passwall2-zh-cn
 luci-app-adblock-fast
 luci-i18n-adblock-fast-zh-cn

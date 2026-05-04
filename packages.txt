@@ -48,7 +48,6 @@ ca-bundle
 ip-full
 xray-core
 sing-box
-tcping
 iptables-nft
 ip6tables-nft
 iptables-mod-filter
